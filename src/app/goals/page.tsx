@@ -61,6 +61,9 @@ export default function GoalsPage() {
             protein: parseFloat(protein) || 150,
             carbs: parseFloat(carbs) || 200,
             fats: parseFloat(fats) || 65,
+            fiber: userProfile?.nutritionGoals.fiber ?? 30,
+            sugar: userProfile?.nutritionGoals.sugar ?? 50,
+            saturatedFat: userProfile?.nutritionGoals.saturatedFat ?? 20,
         };
 
         try {
