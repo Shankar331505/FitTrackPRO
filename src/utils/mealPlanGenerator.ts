@@ -92,6 +92,9 @@ export function calculateOptimalMacros(input: GoalInput): NutritionGoals {
         protein: Math.round(protein),
         carbs: Math.round(carbs),
         fats: Math.round(fats),
+        fiber: 30,
+        sugar: 50,
+        saturatedFat: Math.round(fats * 0.3), // ~30% of total fat
     };
 }
 
