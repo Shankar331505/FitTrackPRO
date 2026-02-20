@@ -4,6 +4,24 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { UserProfile, BodyMetrics } from '@/types/user';
 import { DailyLog, Recipe, NutritionGoals } from '@/types/nutrition';
 import { WorkoutLog, WorkoutGoal } from '@/types/exercise';
+import { useAuth } from '@/context/AuthContext';
+import { useRouter } from 'next/navigation';
+import {
+    doc, getDoc, setDoc, collection,
+    getDocs, addDoc, updateDoc, query, orderBy,
+} from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+
+// Firestore does not accept `undefined` values — replace them with null recursively
+function sanitize<T>(obj: T): T {
+    if (Array.isArray(obj)) return obj.map(sanitize) as unknown as T;
+    if (obj !== null && typeof obj === 'object') {
+        return Object.fromEntries(
+            Object.entries(obj).map(([k, v]) => [k, v === undefined ? null : sanitize(v)])
+        ) as T;
+    }
+    return obj;
+}
 
 interface AppContextType {
     // User & Profile
@@ -42,98 +60,108 @@ export const useApp = () => {
     return context;
 };
 
-interface AppProviderProps {
-    children: ReactNode;
-}
+const DEFAULT_PROFILE = (uid: string): UserProfile => ({
+    id: uid,
+    name: 'User',
+    nutritionGoals: {
+        calories: 2000,
+        protein: 150,
+        carbs: 200,
+        fats: 65,
+        fiber: 30,
+        sugar: 50,
+        saturatedFat: 20,
+    },
+    workoutGoal: {
+        fitnessGoal: 'general',
+        experienceLevel: 'beginner',
+        workoutsPerWeek: 3,
+        preferredDuration: 60,
+        availableEquipment: ['bodyweight', 'dumbbell'],
+    },
+    bodyMetrics: [],
+    createdAt: new Date().toISOString(),
+    preferences: {
+        darkMode: false,
+        notifications: {
+            mealReminders: true,
+            workoutReminders: true,
+            hydrationReminders: true,
+        },
+        units: { weight: 'kg', distance: 'km', height: 'cm' },
+    },
+});
 
-export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
+export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+    const { user, loading: authLoading } = useAuth();
+    const router = useRouter();
+
     const [userProfile, setUserProfileState] = useState<UserProfile | null>(null);
     const [dailyLogs, setDailyLogs] = useState<DailyLog[]>([]);
     const [recipes, setRecipes] = useState<Recipe[]>([]);
     const [workoutLogs, setWorkoutLogs] = useState<WorkoutLog[]>([]);
     const [darkMode, setDarkMode] = useState(false);
-    const [isLoaded, setIsLoaded] = useState(false);
+    const [dataLoaded, setDataLoaded] = useState(false);
 
-    // Load from localStorage on mount
+    // Redirect to auth page if not logged in
     useEffect(() => {
-        const loadData = () => {
+        if (!authLoading && !user) {
+            router.push('/auth');
+        }
+    }, [user, authLoading, router]);
+
+    // Load all user data from Firestore when the user logs in
+    useEffect(() => {
+        if (!user) {
+            setUserProfileState(null);
+            setDailyLogs([]);
+            setRecipes([]);
+            setWorkoutLogs([]);
+            setDataLoaded(false);
+            return;
+        }
+
+        const loadData = async () => {
             try {
-                const savedProfile = localStorage.getItem('userProfile');
-                const savedLogs = localStorage.getItem('dailyLogs');
-                const savedRecipes = localStorage.getItem('recipes');
-                const savedWorkouts = localStorage.getItem('workoutLogs');
-                const savedDarkMode = localStorage.getItem('darkMode');
+                const uid = user.uid;
 
-                if (savedProfile) setUserProfileState(JSON.parse(savedProfile));
-                if (savedLogs) setDailyLogs(JSON.parse(savedLogs));
-                if (savedRecipes) setRecipes(JSON.parse(savedRecipes));
-                if (savedWorkouts) setWorkoutLogs(JSON.parse(savedWorkouts));
-                if (savedDarkMode) setDarkMode(JSON.parse(savedDarkMode));
-
-                // If no profile exists, create default
-                if (!savedProfile) {
-                    const defaultProfile: UserProfile = {
-                        id: 'user-1',
-                        name: 'User',
-                        nutritionGoals: {
-                            calories: 2000,
-                            protein: 150,
-                            carbs: 200,
-                            fats: 65,
-                            fiber: 30,
-                            sugar: 50,
-                            saturatedFat: 20,
-                        },
-                        workoutGoal: {
-                            fitnessGoal: 'general',
-                            experienceLevel: 'beginner',
-                            workoutsPerWeek: 3,
-                            preferredDuration: 60,
-                            availableEquipment: ['bodyweight', 'dumbbell'],
-                        },
-                        bodyMetrics: [],
-                        createdAt: new Date().toISOString(),
-                        preferences: {
-                            darkMode: false,
-                            notifications: {
-                                mealReminders: true,
-                                workoutReminders: true,
-                                hydrationReminders: true,
-                            },
-                            units: {
-                                weight: 'kg',
-                                distance: 'km',
-                                height: 'cm',
-                            },
-                        },
-                    };
-                    setUserProfileState(defaultProfile);
+                // Load profile
+                const profileRef = doc(db, 'users', uid, 'data', 'profile');
+                const profileSnap = await getDoc(profileRef);
+                if (profileSnap.exists()) {
+                    setUserProfileState(profileSnap.data() as UserProfile);
+                } else {
+                    // First time user — write default profile
+                    const def = DEFAULT_PROFILE(uid);
+                    await setDoc(profileRef, def);
+                    setUserProfileState(def);
                 }
-            } catch (error) {
-                console.error('Error loading data:', error);
+
+                // Load daily logs
+                const logsRef = collection(db, 'users', uid, 'dailyLogs');
+                const logsSnap = await getDocs(query(logsRef, orderBy('date', 'desc')));
+                setDailyLogs(logsSnap.docs.map(d => d.data() as DailyLog));
+
+                // Load workout logs
+                const workoutsRef = collection(db, 'users', uid, 'workoutLogs');
+                const workoutsSnap = await getDocs(query(workoutsRef, orderBy('date', 'desc')));
+                setWorkoutLogs(workoutsSnap.docs.map(d => d.data() as WorkoutLog));
+
+                // Load recipes
+                const recipesRef = collection(db, 'users', uid, 'recipes');
+                const recipesSnap = await getDocs(recipesRef);
+                setRecipes(recipesSnap.docs.map(d => d.data() as Recipe));
+
+            } catch (err) {
+                console.error('Error loading data from Firestore:', err);
             }
-            setIsLoaded(true);
+            setDataLoaded(true);
         };
 
         loadData();
-    }, []);
+    }, [user]);
 
-    // Save to localStorage whenever data changes
-    useEffect(() => {
-        if (!isLoaded) return;
-
-        try {
-            if (userProfile) localStorage.setItem('userProfile', JSON.stringify(userProfile));
-            localStorage.setItem('dailyLogs', JSON.stringify(dailyLogs));
-            localStorage.setItem('recipes', JSON.stringify(recipes));
-            localStorage.setItem('workoutLogs', JSON.stringify(workoutLogs));
-            localStorage.setItem('darkMode', JSON.stringify(darkMode));
-        } catch (error) {
-            console.error('Error saving data:', error);
-        }
-    }, [userProfile, dailyLogs, recipes, workoutLogs, darkMode, isLoaded]);
-
-    // Apply dark mode class to document
+    // Apply dark mode
     useEffect(() => {
         if (darkMode) {
             document.documentElement.classList.add('dark');
@@ -142,22 +170,28 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
         }
     }, [darkMode]);
 
-    const setUserProfile = (profile: UserProfile) => {
+    const setUserProfile = async (profile: UserProfile) => {
         setUserProfileState(profile);
+        if (!user) return;
+        await setDoc(doc(db, 'users', user.uid, 'data', 'profile'), sanitize(profile));
     };
 
-    const addDailyLog = (log: DailyLog) => {
+    const addDailyLog = async (log: DailyLog) => {
         setDailyLogs(prev => {
             const filtered = prev.filter(l => l.date !== log.date);
             return [...filtered, log].sort((a, b) => b.date.localeCompare(a.date));
         });
+        if (!user) return;
+        await setDoc(doc(db, 'users', user.uid, 'dailyLogs', log.date), sanitize(log));
     };
 
-    const updateDailyLog = (date: string, log: DailyLog) => {
+    const updateDailyLog = async (date: string, log: DailyLog) => {
         setDailyLogs(prev => {
             const filtered = prev.filter(l => l.date !== date);
             return [...filtered, log].sort((a, b) => b.date.localeCompare(a.date));
         });
+        if (!user) return;
+        await setDoc(doc(db, 'users', user.uid, 'dailyLogs', date), sanitize(log));
     };
 
     const getTodayLog = (): DailyLog | undefined => {
@@ -165,27 +199,31 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
         return dailyLogs.find(log => log.date === today);
     };
 
-    const addRecipe = (recipe: Recipe) => {
+    const addRecipe = async (recipe: Recipe) => {
         setRecipes(prev => [...prev, recipe]);
+        if (!user) return;
+        await setDoc(doc(db, 'users', user.uid, 'recipes', recipe.id), sanitize(recipe));
     };
 
-    const addWorkoutLog = (log: WorkoutLog) => {
+    const addWorkoutLog = async (log: WorkoutLog) => {
         setWorkoutLogs(prev => {
             const filtered = prev.filter(l => l.id !== log.id);
             return [...filtered, log].sort((a, b) => b.date.localeCompare(a.date));
         });
+        if (!user) return;
+        await setDoc(doc(db, 'users', user.uid, 'workoutLogs', log.id), sanitize(log));
     };
 
-    const addBodyMetric = (metric: BodyMetrics) => {
-        if (!userProfile) return;
-
+    const addBodyMetric = async (metric: BodyMetrics) => {
+        if (!userProfile || !user) return;
         const updated: UserProfile = {
             ...userProfile,
             bodyMetrics: [...userProfile.bodyMetrics, metric].sort(
                 (a, b) => b.date.localeCompare(a.date)
             ),
         };
-        setUserProfile(updated);
+        setUserProfileState(updated);
+        await setDoc(doc(db, 'users', user.uid, 'data', 'profile'), sanitize(updated));
     };
 
     const toggleDarkMode = () => {
@@ -207,6 +245,18 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
         darkMode,
         toggleDarkMode,
     };
+
+    // Don't render the app until auth state is known
+    if (authLoading || (user && !dataLoaded)) {
+        return (
+            <div style={{
+                minHeight: '100vh', display: 'flex', alignItems: 'center',
+                justifyContent: 'center', background: '#0f172a',
+            }}>
+                <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '16px' }}>Loading...</div>
+            </div>
+        );
+    }
 
     return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 };
