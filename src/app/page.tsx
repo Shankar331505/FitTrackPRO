@@ -6,10 +6,17 @@ import { useApp } from '@/context/AppContext';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { ProgressRing } from '@/components/ui/ProgressRing';
-import { Flame, Drumstick, Wheat, Droplet, Dumbbell, TrendingUp, Plus } from 'lucide-react';
+import { Flame, Drumstick, Wheat, Droplet, Dumbbell, TrendingUp, Plus, ArrowRight, AlertTriangle, Leaf } from 'lucide-react';
 import Link from 'next/link';
 import { calculateDailyTotals } from '@/utils/nutritionCalculator';
 import { analyzeMicronutrients } from '@/utils/micronutrientAnalyzer';
+
+function getGreeting(): string {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good morning';
+    if (hour < 17) return 'Good afternoon';
+    return 'Good evening';
+}
 
 export default function HomePage() {
     const { userProfile, getTodayLog, workoutLogs, darkMode } = useApp();
@@ -25,98 +32,101 @@ export default function HomePage() {
     const deficiencies = todayTotals ? analyzeMicronutrients(todayTotals) : [];
     const criticalDeficiencies = deficiencies.filter(d => d.severity === 'high').slice(0, 2);
 
+    const statCards = [
+        {
+            label: 'Calories',
+            value: todayTotals ? Math.round(todayTotals.calories) : 0,
+            target: goals?.calories || 2000,
+            unit: 'kcal',
+            icon: Flame,
+            accent: 'accent-bar-amber',
+            iconBg: 'bg-amber-50 dark:bg-amber-950/40',
+            iconColor: 'text-amber-600 dark:text-amber-400',
+        },
+        {
+            label: 'Protein',
+            value: todayTotals ? Math.round(todayTotals.protein) : 0,
+            target: goals?.protein || 150,
+            unit: 'g',
+            icon: Drumstick,
+            accent: 'accent-bar-indigo',
+            iconBg: 'bg-primary-50 dark:bg-primary-950/40',
+            iconColor: 'text-primary-600 dark:text-primary-400',
+        },
+        {
+            label: 'Carbs',
+            value: todayTotals ? Math.round(todayTotals.carbs) : 0,
+            target: goals?.carbs || 200,
+            unit: 'g',
+            icon: Wheat,
+            accent: 'accent-bar-emerald',
+            iconBg: 'bg-emerald-50 dark:bg-emerald-950/40',
+            iconColor: 'text-emerald-600 dark:text-emerald-400',
+        },
+        {
+            label: 'Fats',
+            value: todayTotals ? Math.round(todayTotals.fats) : 0,
+            target: goals?.fats || 65,
+            unit: 'g',
+            icon: Droplet,
+            accent: 'accent-bar-rose',
+            iconBg: 'bg-rose-50 dark:bg-rose-950/40',
+            iconColor: 'text-rose-600 dark:text-rose-400',
+        },
+    ];
+
     return (
-        <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+        <div className="min-h-screen bg-surface-50 dark:bg-surface-950 bg-grid">
             <Navigation />
 
             <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
                 {/* Header */}
                 <div className="mb-8">
-                    <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-2">
-                        Welcome back, {userProfile?.name || 'User'}! 👋
-                    </h1>
-                    <p className="text-gray-600 dark:text-gray-400">
-                        {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                    <p className="text-sm font-medium text-surface-400 dark:text-surface-500 mb-1">
+                        {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
                     </p>
+                    <h1 className="text-3xl font-extrabold text-surface-900 dark:text-surface-50 tracking-tight">
+                        {getGreeting()}, {userProfile?.name || 'there'}
+                    </h1>
                 </div>
 
-                {/* Quick Stats */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                    <Card className="bg-gradient-to-br from-orange-500 to-red-600 text-white border-0">
-                        <CardContent className="pt-6">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <p className="text-orange-100 text-sm font-medium mb-1">Calories Today</p>
-                                    <p className="text-3xl font-bold">
-                                        {todayTotals ? Math.round(todayTotals.calories) : 0}
-                                    </p>
-                                    <p className="text-orange-100 text-sm mt-1">
-                                        / {goals?.calories || 2000} kcal
-                                    </p>
-                                </div>
-                                <Flame className="w-12 h-12 text-orange-200" />
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    <Card className="bg-gradient-to-br from-blue-500 to-cyan-600 text-white border-0">
-                        <CardContent className="pt-6">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <p className="text-blue-100 text-sm font-medium mb-1">Protein</p>
-                                    <p className="text-3xl font-bold">
-                                        {todayTotals ? Math.round(todayTotals.protein) : 0}g
-                                    </p>
-                                    <p className="text-blue-100 text-sm mt-1">
-                                        / {goals?.protein || 150}g
-                                    </p>
-                                </div>
-                                <Drumstick className="w-12 h-12 text-blue-200" />
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    <Card className="bg-gradient-to-br from-green-500 to-emerald-600 text-white border-0">
-                        <CardContent className="pt-6">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <p className="text-green-100 text-sm font-medium mb-1">Carbs</p>
-                                    <p className="text-3xl font-bold">
-                                        {todayTotals ? Math.round(todayTotals.carbs) : 0}g
-                                    </p>
-                                    <p className="text-green-100 text-sm mt-1">
-                                        / {goals?.carbs || 200}g
-                                    </p>
-                                </div>
-                                <Wheat className="w-12 h-12 text-green-200" />
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    <Card className="bg-gradient-to-br from-purple-500 to-pink-600 text-white border-0">
-                        <CardContent className="pt-6">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <p className="text-purple-100 text-sm font-medium mb-1">Fats</p>
-                                    <p className="text-3xl font-bold">
-                                        {todayTotals ? Math.round(todayTotals.fats) : 0}g
-                                    </p>
-                                    <p className="text-purple-100 text-sm mt-1">
-                                        / {goals?.fats || 65}g
-                                    </p>
-                                </div>
-                                <Droplet className="w-12 h-12 text-purple-200" />
-                            </div>
-                        </CardContent>
-                    </Card>
+                {/* Quick Stats — accent bar cards */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                    {statCards.map((stat, idx) => {
+                        const Icon = stat.icon;
+                        const pct = stat.target > 0 ? Math.round((stat.value / stat.target) * 100) : 0;
+                        return (
+                            <Card key={stat.label} className={`${stat.accent} animate-slide-up stagger-${idx + 1}`} hover={false}>
+                                <CardContent>
+                                    <div className="flex items-start justify-between">
+                                        <div>
+                                            <p className="text-xs font-semibold text-surface-400 dark:text-surface-500 uppercase tracking-wider mb-1">
+                                                {stat.label}
+                                            </p>
+                                            <p className="text-2xl font-extrabold text-surface-900 dark:text-surface-50 tabular-nums">
+                                                {stat.value}
+                                                <span className="text-sm font-medium text-surface-400 dark:text-surface-500 ml-1">{stat.unit}</span>
+                                            </p>
+                                            <p className="text-xs text-surface-400 dark:text-surface-500 mt-1 tabular-nums">
+                                                {pct}% of {stat.target} {stat.unit}
+                                            </p>
+                                        </div>
+                                        <div className={`p-2.5 rounded-xl ${stat.iconBg}`}>
+                                            <Icon className={`w-5 h-5 ${stat.iconColor}`} />
+                                        </div>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        );
+                    })}
                 </div>
 
                 {/* Main Content Grid */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
                     {/* Today's Nutrition */}
                     <Card>
                         <CardHeader>
-                            <CardTitle>Today's Nutrition</CardTitle>
+                            <CardTitle>Today&apos;s Nutrition</CardTitle>
                         </CardHeader>
                         <CardContent>
                             {todayTotals && goals ? (
@@ -126,43 +136,45 @@ export default function HomePage() {
                                         target={goals.calories}
                                         label="Calories"
                                         unit="kcal"
-                                        size={140}
+                                        size={130}
                                     />
                                     <ProgressRing
                                         current={todayTotals.protein}
                                         target={goals.protein}
                                         label="Protein"
                                         unit="g"
-                                        size={140}
-                                        color="#3b82f6"
+                                        size={130}
+                                        color="#4f46e5"
                                     />
                                     <ProgressRing
                                         current={todayTotals.carbs}
                                         target={goals.carbs}
                                         label="Carbs"
                                         unit="g"
-                                        size={140}
-                                        color="#10b981"
+                                        size={130}
+                                        color="#059669"
                                     />
                                     <ProgressRing
                                         current={todayTotals.fats}
                                         target={goals.fats}
                                         label="Fats"
                                         unit="g"
-                                        size={140}
-                                        color="#8b5cf6"
+                                        size={130}
+                                        color="#e11d48"
                                     />
                                 </div>
                             ) : (
-                                <div className="text-center py-12">
-                                    <Flame className="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
-                                    <p className="text-gray-600 dark:text-gray-400 mb-4">
-                                        No meals logged today
+                                <div className="text-center py-10">
+                                    <div className="w-14 h-14 bg-surface-100 dark:bg-surface-800 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                                        <Flame className="w-7 h-7 text-surface-300 dark:text-surface-600" />
+                                    </div>
+                                    <p className="text-sm text-surface-500 dark:text-surface-400 mb-4 font-medium">
+                                        Start tracking your meals for today
                                     </p>
                                     <Link href="/nutrition">
-                                        <Button variant="primary">
-                                            <Plus className="w-5 h-5" />
-                                            Log Your First Meal
+                                        <Button variant="primary" size="sm">
+                                            <Plus className="w-4 h-4" />
+                                            Log First Meal
                                         </Button>
                                     </Link>
                                 </div>
@@ -176,7 +188,10 @@ export default function HomePage() {
                             <div className="flex items-center justify-between">
                                 <CardTitle>Recent Workout</CardTitle>
                                 <Link href="/exercise">
-                                    <Button variant="ghost" size="sm">View All</Button>
+                                    <Button variant="ghost" size="sm">
+                                        View All
+                                        <ArrowRight className="w-3.5 h-3.5" />
+                                    </Button>
                                 </Link>
                             </div>
                         </CardHeader>
@@ -185,16 +200,16 @@ export default function HomePage() {
                                 <div>
                                     <div className="flex items-center justify-between mb-4">
                                         <div>
-                                            <p className="text-sm text-gray-500 dark:text-gray-400">
+                                            <p className="text-xs text-surface-400 dark:text-surface-500 font-medium">
                                                 {new Date(recentWorkout.date).toLocaleDateString()}
                                             </p>
-                                            <p className="text-lg font-semibold text-gray-900 dark:text-white">
+                                            <p className="text-lg font-bold text-surface-900 dark:text-surface-50">
                                                 {recentWorkout.exercises.length} exercises
                                             </p>
                                         </div>
                                         <div className="text-right">
-                                            <p className="text-sm text-gray-500 dark:text-gray-400">Duration</p>
-                                            <p className="text-lg font-semibold text-gray-900 dark:text-white">
+                                            <p className="text-xs text-surface-400 dark:text-surface-500 font-medium">Duration</p>
+                                            <p className="text-lg font-bold text-surface-900 dark:text-surface-50 tabular-nums">
                                                 {recentWorkout.duration} min
                                             </p>
                                         </div>
@@ -202,11 +217,11 @@ export default function HomePage() {
 
                                     <div className="space-y-2">
                                         {recentWorkout.exercises.slice(0, 3).map((ex, idx) => (
-                                            <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                                                <span className="font-medium text-gray-900 dark:text-white">
+                                            <div key={idx} className="flex items-center justify-between p-3 bg-surface-50 dark:bg-surface-900/50 rounded-xl">
+                                                <span className="text-sm font-medium text-surface-800 dark:text-surface-200">
                                                     {ex.exercise.name}
                                                 </span>
-                                                <span className="text-sm text-gray-600 dark:text-gray-400">
+                                                <span className="text-xs text-surface-400 dark:text-surface-500 font-medium tabular-nums">
                                                     {ex.sets.length} sets
                                                 </span>
                                             </div>
@@ -214,21 +229,23 @@ export default function HomePage() {
                                     </div>
 
                                     {recentWorkout.exercises.length > 3 && (
-                                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-3 text-center">
+                                        <p className="text-xs text-surface-400 dark:text-surface-500 mt-3 text-center font-medium">
                                             +{recentWorkout.exercises.length - 3} more exercises
                                         </p>
                                     )}
                                 </div>
                             ) : (
-                                <div className="text-center py-12">
-                                    <Dumbbell className="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
-                                    <p className="text-gray-600 dark:text-gray-400 mb-4">
+                                <div className="text-center py-10">
+                                    <div className="w-14 h-14 bg-surface-100 dark:bg-surface-800 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                                        <Dumbbell className="w-7 h-7 text-surface-300 dark:text-surface-600" />
+                                    </div>
+                                    <p className="text-sm text-surface-500 dark:text-surface-400 mb-4 font-medium">
                                         No workouts logged yet
                                     </p>
                                     <Link href="/exercise">
-                                        <Button variant="primary">
-                                            <Plus className="w-5 h-5" />
-                                            Log Your First Workout
+                                        <Button variant="primary" size="sm">
+                                            <Plus className="w-4 h-4" />
+                                            Log a Workout
                                         </Button>
                                     </Link>
                                 </div>
@@ -239,35 +256,39 @@ export default function HomePage() {
 
                 {/* Nutrient Alerts */}
                 {criticalDeficiencies.length > 0 && (
-                    <Card className="mt-8 border-orange-200 dark:border-orange-900 bg-orange-50 dark:bg-orange-950">
+                    <Card className="mb-8 border-amber-200/60 dark:border-amber-800/30 bg-amber-50/50 dark:bg-amber-950/20">
                         <CardHeader>
-                            <CardTitle className="text-orange-900 dark:text-orange-100">
-                                ⚠️ Nutrient Deficiency Alert
-                            </CardTitle>
+                            <div className="flex items-center gap-2">
+                                <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                                <CardTitle className="text-amber-900 dark:text-amber-100">
+                                    Nutrient Deficiency Alert
+                                </CardTitle>
+                            </div>
                         </CardHeader>
                         <CardContent>
-                            <div className="space-y-4">
+                            <div className="space-y-3">
                                 {criticalDeficiencies.map((def, idx) => (
-                                    <div key={idx} className="p-4 bg-white dark:bg-gray-800 rounded-lg">
+                                    <div key={idx} className="p-4 bg-white dark:bg-surface-800 rounded-xl">
                                         <div className="flex items-start justify-between mb-2">
                                             <div>
-                                                <h4 className="font-semibold text-gray-900 dark:text-white">
+                                                <h4 className="text-sm font-bold text-surface-900 dark:text-surface-50">
                                                     {def.nutrient}
                                                 </h4>
-                                                <p className="text-sm text-gray-600 dark:text-gray-400">
+                                                <p className="text-xs text-surface-500 dark:text-surface-400 tabular-nums">
                                                     {def.current.toFixed(1)} / {def.target.toFixed(1)} ({def.percentage.toFixed(0)}%)
                                                 </p>
                                             </div>
-                                            <span className="px-3 py-1 bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 text-xs font-medium rounded-full">
-                                                {def.severity.toUpperCase()}
+                                            <span className="px-2 py-0.5 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 text-[10px] font-bold rounded-md uppercase tracking-wider">
+                                                {def.severity}
                                             </span>
                                         </div>
-                                        <p className="text-sm text-gray-700 dark:text-gray-300 mb-2">
-                                            <strong>Recommended foods:</strong>
+                                        <p className="text-xs text-surface-600 dark:text-surface-300 mb-2 font-medium">
+                                            Recommended foods:
                                         </p>
-                                        <div className="flex flex-wrap gap-2">
+                                        <div className="flex flex-wrap gap-1.5">
                                             {def.recommendations.map((food, i) => (
-                                                <span key={i} className="px-3 py-1 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 text-sm rounded-full">
+                                                <span key={i} className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 text-xs rounded-lg font-medium">
+                                                    <Leaf className="w-3 h-3" />
                                                     {food}
                                                 </span>
                                             ))}
@@ -280,48 +301,52 @@ export default function HomePage() {
                 )}
 
                 {/* Quick Actions */}
-                <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <Link href="/nutrition">
-                        <Card hover className="cursor-pointer h-full">
-                            <CardContent className="pt-6 text-center">
-                                <Flame className="w-12 h-12 text-primary-600 mx-auto mb-3" />
-                                <h3 className="font-semibold text-gray-900 dark:text-white mb-2">
-                                    Track Nutrition
-                                </h3>
-                                <p className="text-sm text-gray-600 dark:text-gray-400">
-                                    Log meals and monitor your macros
-                                </p>
-                            </CardContent>
-                        </Card>
-                    </Link>
-
-                    <Link href="/exercise">
-                        <Card hover className="cursor-pointer h-full">
-                            <CardContent className="pt-6 text-center">
-                                <Dumbbell className="w-12 h-12 text-primary-600 mx-auto mb-3" />
-                                <h3 className="font-semibold text-gray-900 dark:text-white mb-2">
-                                    Log Workout
-                                </h3>
-                                <p className="text-sm text-gray-600 dark:text-gray-400">
-                                    Record your exercises and progress
-                                </p>
-                            </CardContent>
-                        </Card>
-                    </Link>
-
-                    <Link href="/analytics">
-                        <Card hover className="cursor-pointer h-full">
-                            <CardContent className="pt-6 text-center">
-                                <TrendingUp className="w-12 h-12 text-primary-600 mx-auto mb-3" />
-                                <h3 className="font-semibold text-gray-900 dark:text-white mb-2">
-                                    View Analytics
-                                </h3>
-                                <p className="text-sm text-gray-600 dark:text-gray-400">
-                                    Track your progress over time
-                                </p>
-                            </CardContent>
-                        </Card>
-                    </Link>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {[
+                        {
+                            href: '/nutrition',
+                            icon: Flame,
+                            title: 'Track Nutrition',
+                            desc: 'Log meals and monitor your macros',
+                            iconBg: 'bg-amber-50 dark:bg-amber-950/40',
+                            iconColor: 'text-amber-600 dark:text-amber-400',
+                        },
+                        {
+                            href: '/exercise',
+                            icon: Dumbbell,
+                            title: 'Log Workout',
+                            desc: 'Record your exercises and progress',
+                            iconBg: 'bg-primary-50 dark:bg-primary-950/40',
+                            iconColor: 'text-primary-600 dark:text-primary-400',
+                        },
+                        {
+                            href: '/analytics',
+                            icon: TrendingUp,
+                            title: 'View Analytics',
+                            desc: 'Track your progress over time',
+                            iconBg: 'bg-emerald-50 dark:bg-emerald-950/40',
+                            iconColor: 'text-emerald-600 dark:text-emerald-400',
+                        },
+                    ].map((action) => {
+                        const Icon = action.icon;
+                        return (
+                            <Link key={action.href} href={action.href}>
+                                <Card hover className="cursor-pointer h-full">
+                                    <CardContent className="text-center py-2">
+                                        <div className={`w-12 h-12 ${action.iconBg} rounded-2xl flex items-center justify-center mx-auto mb-3`}>
+                                            <Icon className={`w-6 h-6 ${action.iconColor}`} />
+                                        </div>
+                                        <h3 className="text-sm font-bold text-surface-900 dark:text-surface-50 mb-1">
+                                            {action.title}
+                                        </h3>
+                                        <p className="text-xs text-surface-400 dark:text-surface-500">
+                                            {action.desc}
+                                        </p>
+                                    </CardContent>
+                                </Card>
+                            </Link>
+                        );
+                    })}
                 </div>
             </main>
         </div>

@@ -13,15 +13,15 @@ interface CardProps {
 export const Card: React.FC<CardProps> = ({
     children,
     className = '',
-    hover = true,
+    hover = false,
     glass = false,
     onClick
 }) => {
     const baseStyles = 'rounded-2xl p-6 transition-all duration-300';
-    const hoverStyles = hover ? 'hover:shadow-xl hover:-translate-y-1 cursor-pointer' : '';
+    const hoverStyles = hover ? 'hover:shadow-lifted hover:border-primary-200 dark:hover:border-primary-800/50 cursor-pointer' : '';
     const glassStyles = glass
         ? 'glass'
-        : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-lg';
+        : 'bg-white dark:bg-surface-800 border border-surface-200/80 dark:border-surface-700/50 shadow-soft';
 
     return (
         <div
@@ -53,7 +53,7 @@ interface CardTitleProps {
 
 export const CardTitle: React.FC<CardTitleProps> = ({ children, className = '' }) => {
     return (
-        <h3 className={`text-xl font-bold text-gray-900 dark:text-white ${className}`}>
+        <h3 className={`text-lg font-bold text-surface-900 dark:text-surface-50 tracking-tight ${className}`}>
             {children}
         </h3>
     );

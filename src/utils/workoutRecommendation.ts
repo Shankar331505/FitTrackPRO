@@ -9,6 +9,15 @@ import {
     DifficultyLevel,
 } from '@/types/exercise';
 import { exerciseDatabase } from '@/data/exerciseDatabase';
+import {
+    searchExercisesAPI,
+    isApiNinjasConfigured,
+    toApiNinjasMuscle,
+    fromApiDifficulty,
+    getCaloriesBurned,
+    ApiNinjasExercise,
+    ApiNinjasDifficulty,
+} from '@/services/apiNinjas';
 
 // Analyze recent workout history to track muscle group frequency
 export const analyzeMuscleGroupFrequency = (
@@ -290,3 +299,160 @@ export const suggestProgressiveOverload = (
         suggestion: 'Focus on consistent form before increasing weight',
     };
 };
+
+// ─────────────────────────────────────────────────
+// API-POWERED RECOMMENDATION (uses API Ninjas)
+// Falls back to local database if API key is not set
+// ─────────────────────────────────────────────────
+
+/** Convert an API Ninjas exercise to our app's Exercise type */
+function convertApiExercise(apiEx: ApiNinjasExercise): Exercise {
+    const muscleMap: Record<string, MuscleGroup> = {
+        abdominals: 'core', abductors: 'legs', adductors: 'legs',
+        biceps: 'biceps', calves: 'legs', chest: 'chest',
+        forearms: 'biceps', glutes: 'glutes', hamstrings: 'legs',
+        lats: 'back', lower_back: 'back', middle_back: 'back',
+        neck: 'shoulders', quadriceps: 'legs', traps: 'shoulders',
+        triceps: 'triceps',
+    };
+
+    const typeMap: Record<string, 'strength' | 'cardio' | 'stretching'> = {
+        strength: 'strength', powerlifting: 'strength', strongman: 'strength',
+        olympic_weightlifting: 'strength', plyometrics: 'strength',
+        cardio: 'cardio', stretching: 'stretching',
+    };
+
+    return {
+        id: `api-${apiEx.name.toLowerCase().replace(/\s+/g, '-')}`,
+        name: apiEx.name,
+        type: typeMap[apiEx.type] || 'strength',
+        primaryMuscles: [muscleMap[apiEx.muscle] || 'core'],
+        secondaryMuscles: [],
+        equipment: (apiEx.equipments || ['bodyweight']) as any,
+        difficulty: fromApiDifficulty(apiEx.difficulty),
+        instructions: apiEx.instructions,
+    };
+}
+
+/**
+ * Generate workout recommendation using API Ninjas exercises.
+ * Falls back to the local generateWorkoutRecommendation() if API is not configured.
+ */
+export const generateWorkoutRecommendationWithAPI = async (
+    workoutLogs: WorkoutLog[],
+    goal: WorkoutGoal
+): Promise<WorkoutRecommendation & { caloriesEstimate?: number; apiPowered: boolean }> => {
+    // Fall back to local if API isn't configured
+    if (!isApiNinjasConfigured()) {
+        const local = generateWorkoutRecommendation(workoutLogs, goal);
+        return { ...local, apiPowered: false };
+    }
+
+    const muscleFrequencies = analyzeMuscleGroupFrequency(workoutLogs, 7);
+
+    // Determine target muscles (same logic as local)
+    const musclesNeedingWork = muscleFrequencies
+        .filter(mf => !mf.needsRecovery && mf.frequency < 2)
+        .sort((a, b) => a.frequency - b.frequency);
+
+    let targetMuscles: MuscleGroup[] = [];
+    let reasoning = '';
+
+    if (goal.fitnessGoal === 'fatLoss' || goal.fitnessGoal === 'endurance') {
+        const cardioFreq = muscleFrequencies.find(mf => mf.muscleGroup === 'cardio');
+        if (cardioFreq && !cardioFreq.needsRecovery) {
+            targetMuscles.push('cardio');
+            reasoning = 'Cardio workout recommended for fat loss and endurance goals. ';
+        }
+        if (musclesNeedingWork.length > 0) {
+            targetMuscles.push(musclesNeedingWork[0].muscleGroup);
+            if (musclesNeedingWork.length > 1) targetMuscles.push(musclesNeedingWork[1].muscleGroup);
+            reasoning += 'Combined with strength training for optimal results.';
+        }
+    } else if (goal.fitnessGoal === 'muscleGain' || goal.fitnessGoal === 'strength') {
+        if (musclesNeedingWork.length > 0) {
+            targetMuscles.push(musclesNeedingWork[0].muscleGroup);
+            reasoning = `Targeting ${musclesNeedingWork[0].muscleGroup} — hasn't been trained recently. `;
+            if (musclesNeedingWork.length > 1) {
+                const complementary = findComplementaryMuscle(musclesNeedingWork[0].muscleGroup, musclesNeedingWork);
+                if (complementary) {
+                    targetMuscles.push(complementary);
+                    reasoning += `Paired with ${complementary} for balanced development.`;
+                }
+            }
+        }
+    } else {
+        if (musclesNeedingWork.length > 0) {
+            targetMuscles = musclesNeedingWork.slice(0, 2).map(mf => mf.muscleGroup);
+            reasoning = 'Balanced workout targeting undertrained muscle groups.';
+        }
+    }
+
+    if (targetMuscles.length === 0) {
+        const leastRecent = muscleFrequencies
+            .filter(mf => !mf.needsRecovery)
+            .sort((a, b) => new Date(a.lastTrained).getTime() - new Date(b.lastTrained).getTime())[0];
+        if (leastRecent) {
+            targetMuscles = [leastRecent.muscleGroup];
+            reasoning = `${leastRecent.muscleGroup} hasn't been trained in a while.`;
+        }
+    }
+
+    // Map difficulty
+    const apiDiff: ApiNinjasDifficulty =
+        goal.experienceLevel === 'advanced' ? 'expert' : goal.experienceLevel;
+
+    // Fetch exercises from API Ninjas for each target muscle
+    const apiExercises: ApiNinjasExercise[] = [];
+    for (const muscle of targetMuscles) {
+        if (muscle === 'cardio') {
+            // Use type=cardio for cardio exercises
+            const cardioEx = await searchExercisesAPI({ type: 'cardio', difficulty: apiDiff });
+            apiExercises.push(...cardioEx);
+        } else {
+            const apiMuscle = toApiNinjasMuscle(muscle);
+            if (apiMuscle) {
+                const muscleEx = await searchExercisesAPI({ muscle: apiMuscle, difficulty: apiDiff });
+                apiExercises.push(...muscleEx);
+            }
+        }
+    }
+
+    // Convert to our Exercise type
+    let exercises: Exercise[];
+    if (apiExercises.length > 0) {
+        exercises = apiExercises
+            .slice(0, 8) // Limit to 8
+            .map(convertApiExercise);
+        reasoning = `[API Ninjas] ${reasoning} Found ${apiExercises.length} exercises from the API.`;
+    } else {
+        // API returned nothing — fall back to local
+        exercises = selectExercises(targetMuscles, goal.availableEquipment, goal.experienceLevel);
+        reasoning += ' (using local exercise database)';
+    }
+
+    const { suggestedSets, suggestedReps } = getSetsAndReps(goal.fitnessGoal, goal.experienceLevel);
+    const estimatedDuration = exercises.length * suggestedSets * 2;
+
+    // Estimate calories burned via API
+    let caloriesEstimate: number | undefined;
+    try {
+        const calResults = await getCaloriesBurned('weight training', 160, estimatedDuration);
+        if (calResults.length > 0) {
+            caloriesEstimate = Math.round(calResults[0].total_calories);
+        }
+    } catch { /* ignore */ }
+
+    return {
+        exercises,
+        reasoning,
+        muscleGroupsFocused: targetMuscles,
+        estimatedDuration,
+        difficulty: goal.experienceLevel,
+        suggestedSets,
+        suggestedReps,
+        caloriesEstimate,
+        apiPowered: apiExercises.length > 0,
+    };
+};
+

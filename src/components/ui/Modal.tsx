@@ -2,7 +2,6 @@
 
 import React, { useEffect } from 'react';
 import { X } from 'lucide-react';
-import { Button } from './Button';
 
 interface ModalProps {
     isOpen: boolean;
@@ -46,25 +45,25 @@ export const Modal: React.FC<ModalProps> = ({
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in">
             {/* Backdrop */}
             <div
-                className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+                className="absolute inset-0 bg-surface-900/60 dark:bg-black/70 backdrop-blur-sm"
                 onClick={onClose}
             />
 
             {/* Modal */}
             <div
-                className={`relative w-full ${sizes[size]} bg-white dark:bg-gray-800 rounded-2xl shadow-2xl animate-slide-up max-h-[90vh] overflow-hidden flex flex-col`}
+                className={`relative w-full ${sizes[size]} bg-white dark:bg-surface-800 rounded-2xl shadow-2xl animate-slide-up max-h-[90vh] overflow-hidden flex flex-col border border-surface-200/60 dark:border-surface-700/50`}
             >
                 {/* Header */}
-                <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
-                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+                <div className="flex items-center justify-between px-6 py-5 border-b border-surface-100 dark:border-surface-700/50">
+                    <h2 className="text-xl font-bold text-surface-900 dark:text-surface-50 tracking-tight">
                         {title}
                     </h2>
                     {showCloseButton && (
                         <button
                             onClick={onClose}
-                            className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                            className="p-2 rounded-xl hover:bg-surface-100 dark:hover:bg-surface-700 transition-colors"
                         >
-                            <X className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+                            <X className="w-4 h-4 text-surface-400 dark:text-surface-500" />
                         </button>
                     )}
                 </div>

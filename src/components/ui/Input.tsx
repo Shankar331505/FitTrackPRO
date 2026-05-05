@@ -13,27 +13,27 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
         return (
             <div className="w-full">
                 {label && (
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <label className="block text-xs font-semibold text-surface-600 dark:text-surface-300 mb-2 uppercase tracking-wider">
                         {label}
                     </label>
                 )}
                 <div className="relative">
                     {icon && (
-                        <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                        <div className="absolute left-3 top-1/2 -translate-y-1/2 text-surface-400">
                             {icon}
                         </div>
                     )}
                     <input
                         ref={ref}
                         className={`
-              w-full px-4 py-3 rounded-lg 
-              border ${error ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'}
-              bg-white dark:bg-gray-800 
-              text-gray-900 dark:text-gray-100 
-              placeholder-gray-400 dark:placeholder-gray-500
+              w-full px-4 py-2.5 rounded-xl 
+              border ${error ? 'border-red-400' : 'border-surface-200 dark:border-surface-700'}
+              bg-white dark:bg-surface-800 
+              text-surface-900 dark:text-surface-100 
+              placeholder-surface-400 dark:placeholder-surface-600
               focus:outline-none focus:ring-2 
-              ${error ? 'focus:ring-red-500' : 'focus:ring-primary-500'}
-              transition-all duration-200
+              ${error ? 'focus:ring-red-500/30 focus:border-red-400' : 'focus:ring-primary-500/20 focus:border-primary-500'}
+              transition-all duration-200 text-sm
               ${icon ? 'pl-10' : ''}
               ${className}
             `}
@@ -41,7 +41,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
                     />
                 </div>
                 {error && (
-                    <p className="mt-1 text-sm text-red-500">{error}</p>
+                    <p className="mt-1 text-xs text-red-500 font-medium">{error}</p>
                 )}
             </div>
         );
@@ -61,7 +61,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
         return (
             <div className="w-full">
                 {label && (
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <label className="block text-xs font-semibold text-surface-600 dark:text-surface-300 mb-2 uppercase tracking-wider">
                         {label}
                     </label>
                 )}
@@ -69,20 +69,20 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
                     ref={ref}
                     rows={rows}
                     className={`
-            w-full px-4 py-3 rounded-lg 
-            border ${error ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'}
-            bg-white dark:bg-gray-800 
-            text-gray-900 dark:text-gray-100 
-            placeholder-gray-400 dark:placeholder-gray-500
+            w-full px-4 py-2.5 rounded-xl 
+            border ${error ? 'border-red-400' : 'border-surface-200 dark:border-surface-700'}
+            bg-white dark:bg-surface-800 
+            text-surface-900 dark:text-surface-100 
+            placeholder-surface-400 dark:placeholder-surface-600
             focus:outline-none focus:ring-2 
-            ${error ? 'focus:ring-red-500' : 'focus:ring-primary-500'}
-            transition-all duration-200
+            ${error ? 'focus:ring-red-500/30 focus:border-red-400' : 'focus:ring-primary-500/20 focus:border-primary-500'}
+            transition-all duration-200 text-sm
             ${className}
           `}
                     {...props as any}
                 />
                 {error && (
-                    <p className="mt-1 text-sm text-red-500">{error}</p>
+                    <p className="mt-1 text-xs text-red-500 font-medium">{error}</p>
                 )}
             </div>
         );

@@ -54,15 +54,17 @@ export const Navigation: React.FC = () => {
     ];
 
     return (
-        <nav className="sticky top-0 z-40 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 shadow-sm">
+        <nav className="sticky top-0 z-40 bg-white/80 dark:bg-surface-900/80 backdrop-blur-xl border-b border-surface-200/60 dark:border-surface-800/60">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex items-center justify-between h-16">
                     {/* Logo */}
-                    <Link href="/" className="flex items-center space-x-2">
-                        <div className="w-10 h-10 bg-gradient-primary rounded-lg flex items-center justify-center">
-                            <Dumbbell className="w-6 h-6 text-white" />
+                    <Link href="/" className="flex items-center space-x-2.5">
+                        <div className="w-9 h-9 gradient-primary rounded-xl flex items-center justify-center shadow-sm">
+                            <span className="text-white font-extrabold text-sm tracking-tight">FT</span>
                         </div>
-                        <span className="text-xl font-bold text-gradient">FitTrack Pro</span>
+                        <span className="text-lg font-extrabold text-surface-900 dark:text-surface-50 tracking-tight">
+                            FitTrack <span className="text-primary-600 dark:text-primary-400">Pro</span>
+                        </span>
                     </Link>
 
                     {/* Desktop Navigation */}
@@ -75,32 +77,32 @@ export const Navigation: React.FC = () => {
                                     key={item.href}
                                     href={item.href}
                                     className={`
-                    flex items-center space-x-2 px-4 py-2 rounded-lg transition-all duration-200
-                    ${isActive
-                                            ? 'bg-primary-100 dark:bg-primary-900 text-primary-700 dark:text-primary-300'
-                                            : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
+                                        flex items-center space-x-2 px-3.5 py-2 rounded-xl transition-all duration-200 text-sm font-medium
+                                        ${isActive
+                                            ? 'bg-primary-50 dark:bg-primary-950/50 text-primary-700 dark:text-primary-300'
+                                            : 'text-surface-500 dark:text-surface-400 hover:text-surface-900 dark:hover:text-surface-200 hover:bg-surface-100 dark:hover:bg-surface-800'
                                         }
-                  `}
+                                    `}
                                 >
-                                    <Icon className="w-5 h-5" />
-                                    <span className="font-medium">{item.label}</span>
+                                    <Icon className="w-4 h-4" />
+                                    <span>{item.label}</span>
                                 </Link>
                             );
                         })}
                     </div>
 
-                    {/* Right side: Dark mode + Profile + Mobile menu */}
+                    {/* Right side */}
                     <div className="flex items-center space-x-2">
                         {/* Dark Mode Toggle */}
                         <button
                             onClick={toggleDarkMode}
-                            className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                            className="p-2 rounded-xl hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
                             aria-label="Toggle dark mode"
                         >
                             {darkMode ? (
-                                <Sun className="w-5 h-5 text-yellow-500" />
+                                <Sun className="w-4 h-4 text-amber-500" />
                             ) : (
-                                <Moon className="w-5 h-5 text-gray-600" />
+                                <Moon className="w-4 h-4 text-surface-500" />
                             )}
                         </button>
 
@@ -108,23 +110,23 @@ export const Navigation: React.FC = () => {
                         <div className="relative" ref={dropdownRef}>
                             <button
                                 onClick={() => { setProfileOpen(!profileOpen); setEditingName(false); }}
-                                className="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-sm hover:opacity-90 transition-opacity shadow-md"
+                                className="w-8 h-8 rounded-xl gradient-primary flex items-center justify-center text-white font-bold text-xs hover:opacity-90 transition-opacity shadow-sm"
                                 aria-label="Profile menu"
                             >
                                 {initials}
                             </button>
 
                             {profileOpen && (
-                                <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden z-50">
+                                <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-surface-800 rounded-2xl shadow-lifted border border-surface-200/60 dark:border-surface-700/50 overflow-hidden z-50 animate-scale-in">
                                     {/* User info header */}
-                                    <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
-                                        <p className="text-xs text-gray-500 dark:text-gray-400">Signed in as</p>
-                                        <p className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">{user?.email}</p>
+                                    <div className="px-4 py-3 border-b border-surface-100 dark:border-surface-700/50 bg-surface-50 dark:bg-surface-900/50">
+                                        <p className="text-[10px] text-surface-400 uppercase tracking-wider font-semibold">Signed in as</p>
+                                        <p className="text-sm font-medium text-surface-800 dark:text-surface-200 truncate mt-0.5">{user?.email}</p>
                                     </div>
 
                                     {/* Username editor */}
-                                    <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
-                                        <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Display Name</p>
+                                    <div className="px-4 py-3 border-b border-surface-100 dark:border-surface-700/50">
+                                        <p className="text-[10px] font-semibold text-surface-400 uppercase tracking-wider mb-2">Display Name</p>
                                         {editingName ? (
                                             <div className="flex items-center gap-2">
                                                 <input
@@ -134,20 +136,20 @@ export const Navigation: React.FC = () => {
                                                     onChange={e => setNameInput(e.target.value)}
                                                     onKeyDown={e => { if (e.key === 'Enter') handleSaveName(); if (e.key === 'Escape') setEditingName(false); }}
                                                     placeholder="Your name"
-                                                    className="flex-1 text-sm px-2 py-1 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 outline-none focus:border-indigo-400"
+                                                    className="flex-1 text-sm px-2.5 py-1.5 rounded-lg border border-surface-200 dark:border-surface-600 bg-white dark:bg-surface-700 text-surface-800 dark:text-surface-200 outline-none focus:border-primary-400 transition-colors"
                                                 />
-                                                <button onClick={handleSaveName} className="p-1 text-green-500 hover:text-green-600">
+                                                <button onClick={handleSaveName} className="p-1 text-emerald-500 hover:text-emerald-600">
                                                     <Check className="w-4 h-4" />
                                                 </button>
                                             </div>
                                         ) : (
                                             <button
                                                 onClick={() => { setNameInput(userProfile?.name ?? ''); setEditingName(true); }}
-                                                className="flex items-center gap-2 w-full text-left text-sm text-gray-700 dark:text-gray-300 hover:text-indigo-500 dark:hover:text-indigo-400 transition-colors"
+                                                className="flex items-center gap-2 w-full text-left text-sm text-surface-600 dark:text-surface-300 hover:text-primary-600 dark:hover:text-primary-400 transition-colors"
                                             >
-                                                <User className="w-4 h-4" />
+                                                <User className="w-3.5 h-3.5" />
                                                 <span>{userProfile?.name || 'Set your name'}</span>
-                                                <span className="ml-auto text-xs text-gray-400">Edit</span>
+                                                <span className="ml-auto text-[10px] text-surface-400 uppercase tracking-wider">Edit</span>
                                             </button>
                                         )}
                                     </div>
@@ -155,9 +157,9 @@ export const Navigation: React.FC = () => {
                                     {/* Sign out */}
                                     <button
                                         onClick={handleSignOut}
-                                        className="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                                        className="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors"
                                     >
-                                        <LogOut className="w-4 h-4" />
+                                        <LogOut className="w-3.5 h-3.5" />
                                         <span>Sign out</span>
                                     </button>
                                 </div>
@@ -167,13 +169,13 @@ export const Navigation: React.FC = () => {
                         {/* Mobile Menu Button */}
                         <button
                             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                            className="md:hidden p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                            className="md:hidden p-2 rounded-xl hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
                             aria-label="Toggle menu"
                         >
                             {mobileMenuOpen ? (
-                                <X className="w-6 h-6 text-gray-600 dark:text-gray-400" />
+                                <X className="w-5 h-5 text-surface-600 dark:text-surface-400" />
                             ) : (
-                                <Menu className="w-6 h-6 text-gray-600 dark:text-gray-400" />
+                                <Menu className="w-5 h-5 text-surface-600 dark:text-surface-400" />
                             )}
                         </button>
                     </div>
@@ -182,7 +184,7 @@ export const Navigation: React.FC = () => {
 
             {/* Mobile Menu */}
             {mobileMenuOpen && (
-                <div className="md:hidden border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
+                <div className="md:hidden border-t border-surface-200/60 dark:border-surface-800/60 bg-white/95 dark:bg-surface-900/95 backdrop-blur-xl animate-slide-down">
                     <div className="px-4 py-2 space-y-1">
                         {navItems.map((item) => {
                             const Icon = item.icon;
@@ -193,25 +195,25 @@ export const Navigation: React.FC = () => {
                                     href={item.href}
                                     onClick={() => setMobileMenuOpen(false)}
                                     className={`
-                    flex items-center space-x-3 px-4 py-3 rounded-lg transition-all duration-200
-                    ${isActive
-                                            ? 'bg-primary-100 dark:bg-primary-900 text-primary-700 dark:text-primary-300'
-                                            : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
+                                        flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200 text-sm font-medium
+                                        ${isActive
+                                            ? 'bg-primary-50 dark:bg-primary-950/50 text-primary-700 dark:text-primary-300'
+                                            : 'text-surface-500 dark:text-surface-400 hover:bg-surface-100 dark:hover:bg-surface-800'
                                         }
-                  `}
+                                    `}
                                 >
-                                    <Icon className="w-5 h-5" />
-                                    <span className="font-medium">{item.label}</span>
+                                    <Icon className="w-4 h-4" />
+                                    <span>{item.label}</span>
                                 </Link>
                             );
                         })}
                         {/* Sign out in mobile menu too */}
                         <button
                             onClick={handleSignOut}
-                            className="w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                            className="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors"
                         >
-                            <LogOut className="w-5 h-5" />
-                            <span className="font-medium">Sign out</span>
+                            <LogOut className="w-4 h-4" />
+                            <span>Sign out</span>
                         </button>
                     </div>
                 </div>

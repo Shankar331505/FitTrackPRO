@@ -18,8 +18,8 @@ export const ProgressRing: React.FC<ProgressRingProps> = ({
     label,
     unit = '',
     size = 120,
-    strokeWidth = 10,
-    color = '#0ea5e9',
+    strokeWidth = 8,
+    color = '#4f46e5',
 }) => {
     const radius = (size - strokeWidth) / 2;
     const circumference = 2 * Math.PI * radius;
@@ -29,12 +29,15 @@ export const ProgressRing: React.FC<ProgressRingProps> = ({
     // Determine color based on percentage
     let ringColor = color;
     if (percentage >= 90 && percentage <= 110) {
-        ringColor = '#10b981'; // green
+        ringColor = '#059669'; // emerald
     } else if (percentage > 110) {
-        ringColor = '#ef4444'; // red
+        ringColor = '#dc2626'; // red
     } else if (percentage >= 70) {
-        ringColor = '#f59e0b'; // yellow
+        ringColor = '#d97706'; // amber
     }
+
+    // Track color = ring color at 12% opacity
+    const trackOpacity = '1a'; // 10% in hex
 
     return (
         <div className="flex flex-col items-center">
@@ -44,15 +47,14 @@ export const ProgressRing: React.FC<ProgressRingProps> = ({
                     height={size}
                     className="transform -rotate-90"
                 >
-                    {/* Background circle */}
+                    {/* Background circle — tinted to match ring */}
                     <circle
                         cx={size / 2}
                         cy={size / 2}
                         r={radius}
                         fill="none"
-                        stroke="currentColor"
+                        stroke={`${ringColor}${trackOpacity}`}
                         strokeWidth={strokeWidth}
-                        className="text-gray-200 dark:text-gray-700"
                     />
                     {/* Progress circle */}
                     <circle
@@ -65,26 +67,23 @@ export const ProgressRing: React.FC<ProgressRingProps> = ({
                         strokeDasharray={circumference}
                         strokeDashoffset={offset}
                         strokeLinecap="round"
-                        className="transition-all duration-500 ease-out"
-                        style={{
-                            filter: 'drop-shadow(0 0 6px rgba(14, 165, 233, 0.4))',
-                        }}
+                        className="transition-all duration-700 ease-out"
                     />
                 </svg>
                 {/* Center text */}
                 <div className="absolute inset-0 flex flex-col items-center justify-center">
-                    <span className="text-2xl font-bold text-gray-900 dark:text-white">
+                    <span className="text-xl font-bold text-surface-900 dark:text-surface-50 tabular-nums">
                         {current.toFixed(0)}
                     </span>
-                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                    <span className="text-[10px] text-surface-500 dark:text-surface-400 font-medium">
                         / {target.toFixed(0)}{unit}
                     </span>
                 </div>
             </div>
-            <span className="mt-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+            <span className="mt-2 text-xs font-semibold text-surface-600 dark:text-surface-300 uppercase tracking-wider">
                 {label}
             </span>
-            <span className="text-xs text-gray-500 dark:text-gray-400">
+            <span className="text-[10px] text-surface-400 dark:text-surface-500 font-medium">
                 {percentage.toFixed(0)}%
             </span>
         </div>
