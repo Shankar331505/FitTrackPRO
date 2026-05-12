@@ -6,6 +6,7 @@ const USDA_BASE_URL = 'https://api.nal.usda.gov/fdc/v1';
 interface USDAFood {
     fdcId: number;
     description: string;
+    dataType?: string; // "Branded", "Survey (FNDDS)", "SR Legacy", "Foundation"
     foodNutrients: Array<{
         nutrientId: number;
         nutrientName: string;
@@ -15,6 +16,7 @@ interface USDAFood {
     servingSize?: number;
     servingSizeUnit?: string;
     brandOwner?: string;
+    foodCategory?: string;
 }
 
 interface USDASearchResult {
@@ -50,11 +52,44 @@ const NUTRIENT_MAP: Record<number, keyof Food> = {
     1167: 'niacin', // Niacin
 };
 
-// Search foods from USDA API
+/**
+ * Preferred data types in order of accuracy/consistency:
+ * 1. "Survey (FNDDS)" — USDA's most curated dataset, lab-verified, per-100g
+ * 2. "SR Legacy" — Standard Reference, comprehensive, per-100g
+ * 3. "Foundation" — Detailed analytical data, per-100g
+ * 4. "Branded" — Manufacturer-reported (less consistent, per-serving)
+ */
+const PREFERRED_DATA_TYPES = ['Survey (FNDDS)', 'SR Legacy', 'Foundation'];
+
+/** Convert "CHICKEN BREAST, ROASTED" to "Chicken Breast, Roasted" */
+function titleCase(str: string): string {
+    return str
+        .toLowerCase()
+        .replace(/(?:^|\s|,\s*|-)\w/g, match => match.toUpperCase());
+}
+
+/** Clean up USDA food descriptions for readability */
+function cleanFoodName(description: string, dataType?: string): string {
+    let name = titleCase(description);
+
+    // Remove USDA-style parenthetical codes like "(Nfs)" or "(Ns As For Whole Wheat)"
+    name = name.replace(/\s*\(Nfs\)/gi, '');
+    name = name.replace(/\s*\(Ns As.*?\)/gi, '');
+
+    // Trim trailing commas and whitespace
+    name = name.replace(/,\s*$/, '').trim();
+
+    return name;
+}
+
+// Search foods from USDA API — prioritizes standard reference data over branded
 export async function searchUSDAFoods(query: string, pageSize: number = 20): Promise<Food[]> {
     try {
+        // Request more results so we can filter and still return enough
+        const fetchSize = Math.min(pageSize * 3, 50);
+
         const response = await fetch(
-            `${USDA_BASE_URL}/foods/search?query=${encodeURIComponent(query)}&pageSize=${pageSize}&api_key=${USDA_API_KEY}`
+            `${USDA_BASE_URL}/foods/search?query=${encodeURIComponent(query)}&pageSize=${fetchSize}&dataType=Survey%20(FNDDS),SR%20Legacy,Foundation,Branded&api_key=${USDA_API_KEY}`
         );
 
         if (!response.ok) {
@@ -63,7 +98,28 @@ export async function searchUSDAFoods(query: string, pageSize: number = 20): Pro
 
         const data: USDASearchResult = await response.json();
 
-        return data.foods.map(usdaFood => convertUSDAToFood(usdaFood));
+        // Sort: preferred data types first, then by relevance
+        const sorted = data.foods.sort((a, b) => {
+            const aPreferred = PREFERRED_DATA_TYPES.includes(a.dataType || '') ? 0 : 1;
+            const bPreferred = PREFERRED_DATA_TYPES.includes(b.dataType || '') ? 0 : 1;
+            return aPreferred - bPreferred;
+        });
+
+        // Deduplicate by food name (keep the preferred data type version)
+        const seen = new Set<string>();
+        const unique = sorted.filter(food => {
+            const key = food.description.toLowerCase().replace(/[^a-z0-9]/g, '');
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        });
+
+        // Filter out foods with no calorie data
+        const withCalories = unique.filter(food =>
+            food.foodNutrients.some(n => n.nutrientId === 1008 && n.value > 0)
+        );
+
+        return withCalories.slice(0, pageSize).map(usdaFood => convertUSDAToFood(usdaFood));
     } catch (error) {
         console.error('USDA API Error:', error);
         return [];
@@ -91,12 +147,14 @@ export async function getUSDAFoodById(fdcId: number): Promise<Food | null> {
 
 // Convert USDA food format to our Food type
 function convertUSDAToFood(usdaFood: USDAFood): Food {
+    const isBranded = usdaFood.dataType === 'Branded';
+
     const food: Partial<Food> = {
         id: `usda-${usdaFood.fdcId}`,
-        name: usdaFood.description,
-        servingSize: usdaFood.servingSize || 100,
+        name: cleanFoodName(usdaFood.description, usdaFood.dataType),
+        servingSize: 100, // Always normalize to per-100g
         category: 'api', // Mark as API-sourced
-        brand: usdaFood.brandOwner,
+        brand: isBranded ? usdaFood.brandOwner : undefined,
         // Initialize all nutrients to 0
         calories: 0,
         protein: 0,
@@ -128,25 +186,26 @@ function convertUSDAToFood(usdaFood: USDAFood): Food {
     usdaFood.foodNutrients.forEach(nutrient => {
         const fieldName = NUTRIENT_MAP[nutrient.nutrientId];
         if (fieldName) {
-            // Convert all values to per 100g basis
             let value = nutrient.value;
 
-            // If serving size is different from 100g, scale the value
-            if (usdaFood.servingSize && usdaFood.servingSize !== 100) {
+            // For BRANDED foods, USDA reports values per-serving, not per-100g.
+            // We need to normalize to per-100g for consistency.
+            if (isBranded && usdaFood.servingSize && usdaFood.servingSize !== 100) {
                 value = (value / usdaFood.servingSize) * 100;
             }
+            // For Survey (FNDDS), SR Legacy, Foundation — values are already per 100g.
+            // No conversion needed.
 
             // Handle unit conversions
-            if (nutrient.unitName === 'MG' && fieldName === 'calcium') {
-                // Calcium is already in mg, no conversion needed
-            } else if (nutrient.unitName === 'UG') {
-                // Convert micrograms to milligrams for some vitamins
+            if (nutrient.unitName === 'UG') {
+                // Convert micrograms to milligrams for vitamins stored in mg
                 if (['vitaminA', 'vitaminD', 'vitaminK', 'folate', 'vitaminB12'].includes(fieldName)) {
-                    value = value / 1000; // Keep as mcg for these
+                    value = value / 1000;
                 }
             }
 
-            (food as any)[fieldName] = value;
+            // Round to reasonable precision
+            (food as any)[fieldName] = Math.round(value * 100) / 100;
         }
     });
 
@@ -157,7 +216,7 @@ function convertUSDAToFood(usdaFood: USDAFood): Food {
 export async function getUSDAAutocomplete(query: string): Promise<string[]> {
     try {
         const response = await fetch(
-            `${USDA_BASE_URL}/foods/search?query=${encodeURIComponent(query)}&pageSize=10&api_key=${USDA_API_KEY}`
+            `${USDA_BASE_URL}/foods/search?query=${encodeURIComponent(query)}&pageSize=10&dataType=Survey%20(FNDDS),SR%20Legacy&api_key=${USDA_API_KEY}`
         );
 
         if (!response.ok) {
@@ -165,7 +224,7 @@ export async function getUSDAAutocomplete(query: string): Promise<string[]> {
         }
 
         const data: USDASearchResult = await response.json();
-        return data.foods.map(food => food.description);
+        return data.foods.map(food => cleanFoodName(food.description));
     } catch (error) {
         console.error('USDA API Error:', error);
         return [];

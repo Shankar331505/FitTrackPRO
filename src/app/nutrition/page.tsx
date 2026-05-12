@@ -198,8 +198,8 @@ export default function NutritionPage() {
                         <div className="flex items-center gap-2.5">
                             {useAPI ? <Globe className="w-4 h-4 text-primary-600 dark:text-primary-400" /> : <Database className="w-4 h-4 text-surface-500" />}
                             <div>
-                                <p className="text-sm font-bold text-surface-900 dark:text-surface-50">{useAPI ? 'USDA API (300,000+ foods)' : 'Local Database (35 foods)'}</p>
-                                <p className="text-xs text-surface-400">{useAPI ? 'Comprehensive USDA database' : 'Quick access to common foods'}</p>
+                                <p className="text-sm font-bold text-surface-900 dark:text-surface-50">{useAPI ? 'USDA Database (Verified Foods)' : 'Local Database (35 foods)'}</p>
+                                <p className="text-xs text-surface-400">{useAPI ? 'Lab-verified nutrition data from USDA' : 'Quick access to common foods'}</p>
                             </div>
                         </div>
                         <button onClick={() => { setUseAPI(!useAPI); setSearchQuery(''); setSelectedFood(null); }}
@@ -208,7 +208,7 @@ export default function NutritionPage() {
                         </button>
                     </div>
 
-                    <Input placeholder={useAPI ? "Search USDA foods..." : "Search foods..."} value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} icon={<Search className="w-4 h-4" />} />
+                    <Input placeholder={useAPI ? "Search foods (e.g. chicken breast, rice)..." : "Search foods..."} value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} icon={<Search className="w-4 h-4" />} />
 
                     {useAPI && !searchQuery && (
                         <div>
