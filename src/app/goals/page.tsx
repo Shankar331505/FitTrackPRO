@@ -7,9 +7,9 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
-import { Target, TrendingUp, Sparkles, Utensils, Calendar, ChefHat, Clock, Users, AlertTriangle, Info, Flame, Beef, Wheat, Droplets, CheckCircle2, CookingPot } from 'lucide-react';
+import { Target, TrendingUp, Sparkles, Utensils, Calendar, ChefHat, Clock, Users, AlertTriangle, Info, Flame, Beef, Wheat, Droplets, CheckCircle2, CookingPot, Leaf, Drumstick } from 'lucide-react';
 import { calculateOptimalMacros, generateMealPlan, getTimelineRecommendation, MealPlanDay, GoalInput } from '@/utils/mealPlanGenerator';
-import { generateSimpleRecipe, generateRecipeWithAI, SimpleRecipe } from '@/services/recipeService';
+import { generateSimpleRecipe, generateRecipeFromAPI, SimpleRecipe } from '@/services/recipeService';
 import { FoodEntry } from '@/types/nutrition';
 
 export default function GoalsPage() {
@@ -30,6 +30,7 @@ export default function GoalsPage() {
     const [showRecipeModal, setShowRecipeModal] = useState(false);
     const [selectedRecipe, setSelectedRecipe] = useState<SimpleRecipe | null>(null);
     const [isLoadingRecipe, setIsLoadingRecipe] = useState(false);
+    const [isVeg, setIsVeg] = useState(false);
 
     const handleAutoCalculate = () => {
         const input: GoalInput = { currentWeight: parseFloat(weight) || 70, targetWeight: parseFloat(targetWeight) || 65, timelineWeeks: parseInt(timelineWeeks) || 12, activityLevel, gender, age: parseInt(age) || 25, height: parseInt(height) || 170 };
@@ -40,7 +41,7 @@ export default function GoalsPage() {
     const handleGenerateMealPlan = async () => {
         setIsGenerating(true);
         const goals = { calories: parseFloat(calories) || 2000, protein: parseFloat(protein) || 150, carbs: parseFloat(carbs) || 200, fats: parseFloat(fats) || 65, fiber: userProfile?.nutritionGoals.fiber ?? 30, sugar: userProfile?.nutritionGoals.sugar ?? 50, saturatedFat: userProfile?.nutritionGoals.saturatedFat ?? 20 };
-        try { const plan = await generateMealPlan(goals); setMealPlan(plan); } catch (error) { console.error('Error:', error); alert('Error generating meal plan.'); } finally { setIsGenerating(false); }
+        try { const plan = await generateMealPlan(goals, isVeg); setMealPlan(plan); } catch (error) { console.error('Error:', error); alert('Error generating meal plan.'); } finally { setIsGenerating(false); }
     };
 
     const handleSaveGoals = () => {
@@ -58,7 +59,20 @@ export default function GoalsPage() {
         setIsLoadingRecipe(true); setShowRecipeModal(true);
         const foodNames = foods.map(f => f.food.name);
         const totalMacros = foods.reduce((acc, entry) => { const m = entry.quantity / 100; return { calories: acc.calories + entry.food.calories * m, protein: acc.protein + entry.food.protein * m, carbs: acc.carbs + entry.food.carbs * m, fats: acc.fats + entry.food.fats * m }; }, { calories: 0, protein: 0, carbs: 0, fats: 0 });
-        try { const ai = await generateRecipeWithAI(foodNames, mealType, totalMacros); setSelectedRecipe(ai || generateSimpleRecipe(foodNames, mealType)); } catch { setSelectedRecipe(generateSimpleRecipe(foodNames, mealType)); } finally { setIsLoadingRecipe(false); }
+        // Round macros for the target
+        const targetMacros = { calories: Math.round(totalMacros.calories), protein: Math.round(totalMacros.protein), carbs: Math.round(totalMacros.carbs), fats: Math.round(totalMacros.fats) };
+        try {
+            // Try AI Recipe API first
+            const aiRecipe = await generateRecipeFromAPI(mealType, isVeg, targetMacros, foodNames);
+            if (aiRecipe) {
+                setSelectedRecipe(aiRecipe);
+            } else {
+                // Fallback to hardcoded recipes with exact macro targets
+                setSelectedRecipe(generateSimpleRecipe(foodNames, mealType, isVeg, targetMacros));
+            }
+        } catch {
+            setSelectedRecipe(generateSimpleRecipe(foodNames, mealType, isVeg, targetMacros));
+        } finally { setIsLoadingRecipe(false); }
     };
 
     const timeline = getTimelineRecommendation(parseFloat(weight) || 70, parseFloat(targetWeight) || 65);
@@ -180,9 +194,24 @@ export default function GoalsPage() {
                     <CardHeader>
                         <div className="flex items-center justify-between">
                             <CardTitle>Meal Plan Generator</CardTitle>
-                            <Button onClick={handleGenerateMealPlan} variant="primary" size="sm" disabled={isGenerating}>
-                                {isGenerating ? (<><div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full"></div>Generating...</>) : (<><Sparkles className="w-4 h-4" />Generate Plan</>)}
-                            </Button>
+                            <div className="flex items-center gap-3">
+                                {/* Veg / Non-Veg Toggle */}
+                                <div className="flex items-center bg-surface-100 dark:bg-surface-800 rounded-xl p-0.5">
+                                    <button onClick={() => { setIsVeg(true); setMealPlan(null); }}
+                                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                                            isVeg ? 'bg-emerald-500 text-white shadow-sm' : 'text-surface-500 hover:text-surface-700 dark:hover:text-surface-300'}`}>
+                                        <Leaf className="w-3.5 h-3.5" />Veg
+                                    </button>
+                                    <button onClick={() => { setIsVeg(false); setMealPlan(null); }}
+                                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                                            !isVeg ? 'bg-red-500 text-white shadow-sm' : 'text-surface-500 hover:text-surface-700 dark:hover:text-surface-300'}`}>
+                                        <Drumstick className="w-3.5 h-3.5" />Non-Veg
+                                    </button>
+                                </div>
+                                <Button onClick={handleGenerateMealPlan} variant="primary" size="sm" disabled={isGenerating}>
+                                    {isGenerating ? (<><div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full"></div>Generating...</>) : (<><Sparkles className="w-4 h-4" />Generate Plan</>)}
+                                </Button>
+                            </div>
                         </div>
                     </CardHeader>
                     <CardContent>

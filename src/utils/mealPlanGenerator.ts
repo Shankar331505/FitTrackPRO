@@ -137,6 +137,37 @@ const mealOptions = {
     ],
 };
 
+// Vegetarian meal options — no meat, fish, or eggs
+const vegMealOptions = {
+    breakfast: [
+        [{ search: 'Oats', portion: 0.30 }, { search: 'Milk', portion: 0.25 }, { search: 'Banana', portion: 0.25 }, { search: 'Almonds', portion: 0.20 }],
+        [{ search: 'Poha', portion: 0.35 }, { search: 'Peanuts', portion: 0.20 }, { search: 'Curd', portion: 0.25 }, { search: 'Apple', portion: 0.20 }],
+        [{ search: 'Idli', portion: 0.30 }, { search: 'Sambar', portion: 0.25 }, { search: 'Coconut Chutney', portion: 0.20 }, { search: 'Banana', portion: 0.25 }],
+        [{ search: 'Dosa', portion: 0.30 }, { search: 'Potato', portion: 0.25 }, { search: 'Sambar', portion: 0.25 }, { search: 'Milk', portion: 0.20 }],
+        [{ search: 'Upma', portion: 0.35 }, { search: 'Curd', portion: 0.25 }, { search: 'Banana', portion: 0.20 }, { search: 'Cashew', portion: 0.20 }],
+    ],
+    lunch: [
+        [{ search: 'Basmati Rice', portion: 0.25 }, { search: 'Dal', portion: 0.25 }, { search: 'Paneer', portion: 0.30 }, { search: 'Curd', portion: 0.20 }],
+        [{ search: 'Roti', portion: 0.25 }, { search: 'Rajma', portion: 0.30 }, { search: 'Basmati Rice', portion: 0.25 }, { search: 'Salad', portion: 0.20 }],
+        [{ search: 'Basmati Rice', portion: 0.25 }, { search: 'Chole', portion: 0.30 }, { search: 'Curd', portion: 0.25 }, { search: 'Salad', portion: 0.20 }],
+        [{ search: 'Roti', portion: 0.25 }, { search: 'Palak Paneer', portion: 0.30 }, { search: 'Basmati Rice', portion: 0.25 }, { search: 'Raita', portion: 0.20 }],
+        [{ search: 'Roti', portion: 0.25 }, { search: 'Mixed Vegetables', portion: 0.25 }, { search: 'Dal', portion: 0.25 }, { search: 'Curd', portion: 0.25 }],
+    ],
+    dinner: [
+        [{ search: 'Roti', portion: 0.30 }, { search: 'Paneer Butter Masala', portion: 0.30 }, { search: 'Dal', portion: 0.25 }, { search: 'Salad', portion: 0.15 }],
+        [{ search: 'Basmati Rice', portion: 0.25 }, { search: 'Dal Tadka', portion: 0.30 }, { search: 'Aloo Gobi', portion: 0.25 }, { search: 'Curd', portion: 0.20 }],
+        [{ search: 'Roti', portion: 0.25 }, { search: 'Mixed Vegetables', portion: 0.25 }, { search: 'Dal', portion: 0.25 }, { search: 'Paneer', portion: 0.25 }],
+        [{ search: 'Khichdi', portion: 0.40 }, { search: 'Curd', portion: 0.25 }, { search: 'Papad', portion: 0.15 }, { search: 'Salad', portion: 0.20 }],
+    ],
+    snacks: [
+        [{ search: 'Almonds', portion: 0.50 }, { search: 'Apple', portion: 0.50 }],
+        [{ search: 'Peanuts', portion: 0.50 }, { search: 'Banana', portion: 0.50 }],
+        [{ search: 'Sprouts', portion: 0.50 }, { search: 'Orange', portion: 0.50 }],
+        [{ search: 'Walnuts', portion: 0.50 }, { search: 'Mango', portion: 0.50 }],
+        [{ search: 'Curd', portion: 0.40 }, { search: 'Fruits', portion: 0.30 }, { search: 'Honey', portion: 0.30 }],
+    ],
+};
+
 function pickRandom<T>(arr: T[]): T {
     return arr[Math.floor(Math.random() * arr.length)];
 }
@@ -166,7 +197,7 @@ function calcTotals(entries: FoodEntry[]): { calories: number; protein: number; 
 }
 
 // Generate a balanced meal plan (uses USDA API, falls back to simple plan if API fails)
-export async function generateMealPlan(goals: NutritionGoals): Promise<MealPlanDay> {
+export async function generateMealPlan(goals: NutritionGoals, isVeg: boolean = false): Promise<MealPlanDay> {
     const mealPlan: MealPlanDay = {
         breakfast: [],
         lunch: [],
@@ -175,9 +206,11 @@ export async function generateMealPlan(goals: NutritionGoals): Promise<MealPlanD
         totals: { calories: 0, protein: 0, carbs: 0, fats: 0 },
     };
 
+    const options = isVeg ? vegMealOptions : mealOptions;
+
     const mealPromises = Object.entries(MEAL_DISTRIBUTION).map(async ([mealType, percentage]) => {
         const mealCalories = goals.calories * percentage;
-        const template = pickRandom(mealOptions[mealType as keyof typeof mealOptions]);
+        const template = pickRandom(options[mealType as keyof typeof options]);
 
         // Normalize portions so they sum to 1.0
         const portionSum = template.reduce((s, t) => s + t.portion, 0);
