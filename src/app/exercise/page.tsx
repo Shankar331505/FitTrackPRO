@@ -12,7 +12,7 @@ import { exerciseDatabase, searchExercises } from '@/data/exerciseDatabase';
 import { Exercise, WorkoutLog, ExerciseLog, WorkoutSet, WorkoutRecommendation } from '@/types/exercise';
 import { generateWorkoutRecommendation, generateWorkoutRecommendationWithAPI } from '@/utils/workoutRecommendation';
 import { getExerciseIcon, getMuscleGroupColor } from '@/utils/exerciseIcons';
-import { searchExercisesAPI, isApiNinjasConfigured, ApiNinjasExercise } from '@/services/apiNinjas';
+import { searchExercisesByName, isExerciseDBConfigured, ExerciseDBExercise, fromExerciseDBBodyPart, fromExerciseDBDifficulty } from '@/services/exerciseDB';
 
 export default function ExercisePage() {
     const { userProfile, workoutLogs, addWorkoutLog } = useApp();
@@ -43,22 +43,22 @@ export default function ExercisePage() {
 
     // Search exercises from API when query changes
     useEffect(() => {
-        if (!isApiNinjasConfigured() || searchQuery.length < 2) {
+        if (!isExerciseDBConfigured() || searchQuery.length < 2) {
             setApiExercises([]);
             return;
         }
         setIsSearchingApi(true);
         const timer = setTimeout(async () => {
-            const results = await searchExercisesAPI({ name: searchQuery });
-            setApiExercises(results.map(apiEx => ({
-                id: `api-${apiEx.name.toLowerCase().replace(/\s+/g, '-')}`,
+            const results = await searchExercisesByName(searchQuery);
+            setApiExercises(results.map((apiEx: ExerciseDBExercise) => ({
+                id: `api-${apiEx.id || apiEx.name.toLowerCase().replace(/\s+/g, '-')}`,
                 name: apiEx.name,
-                type: apiEx.type.includes('cardio') ? 'cardio' as const : 'strength' as const,
-                primaryMuscles: [apiEx.muscle as any],
+                type: (apiEx.category === 'cardio' ? 'cardio' : apiEx.category === 'stretching' ? 'stretching' : 'strength') as any,
+                primaryMuscles: [fromExerciseDBBodyPart(apiEx.bodyPart)],
                 secondaryMuscles: [],
-                equipment: (apiEx.equipments || ['bodyweight']) as any,
-                difficulty: apiEx.difficulty === 'expert' ? 'advanced' as const : apiEx.difficulty as any,
-                instructions: apiEx.instructions,
+                equipment: [apiEx.equipment === 'body weight' ? 'bodyweight' : apiEx.equipment] as any,
+                difficulty: fromExerciseDBDifficulty(apiEx.difficulty),
+                instructions: Array.isArray(apiEx.instructions) ? apiEx.instructions.join(' ') : apiEx.instructions,
             })));
             setIsSearchingApi(false);
         }, 400);
@@ -121,7 +121,7 @@ export default function ExercisePage() {
                                 <CardTitle className="text-primary-900 dark:text-primary-100">Workout Recommendation</CardTitle>
                                 {recommendation.apiPowered && (
                                     <span className="ml-auto flex items-center gap-1 px-2 py-0.5 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded-md text-[10px] font-bold uppercase tracking-wider">
-                                        <Zap className="w-3 h-3" /> API Ninjas
+                                        <Zap className="w-3 h-3" /> ExerciseDB
                                     </span>
                                 )}
                             </div>
@@ -258,8 +258,8 @@ export default function ExercisePage() {
                         <Input placeholder="Search exercises..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} icon={<Search className="w-4 h-4" />} />
                         {isSearchingApi && <div className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin w-4 h-4 border-2 border-primary-600 border-t-transparent rounded-full" />}
                     </div>
-                    {isApiNinjasConfigured() && searchQuery.length >= 2 && (
-                        <p className="text-[10px] text-surface-400 flex items-center gap-1"><Zap className="w-3 h-3 text-amber-500" /> Searching API Ninjas + local database</p>
+                    {isExerciseDBConfigured() && searchQuery.length >= 2 && (
+                        <p className="text-[10px] text-surface-400 flex items-center gap-1"><Zap className="w-3 h-3 text-amber-500" /> Searching ExerciseDB + local database</p>
                     )}
                     <div className="max-h-64 overflow-y-auto space-y-1.5">
                         {filteredExercises.map(exercise => {

@@ -10,14 +10,16 @@ import {
 } from '@/types/exercise';
 import { exerciseDatabase } from '@/data/exerciseDatabase';
 import {
-    searchExercisesAPI,
-    isApiNinjasConfigured,
-    toApiNinjasMuscle,
-    fromApiDifficulty,
-    getCaloriesBurned,
-    ApiNinjasExercise,
-    ApiNinjasDifficulty,
-} from '@/services/apiNinjas';
+    searchExercisesByName,
+    isExerciseDBConfigured,
+    toExerciseDBBodyPart,
+    fromExerciseDBDifficulty,
+    fromExerciseDBBodyPart,
+    getExercisesByBodyPart,
+    ExerciseDBExercise,
+    ExerciseDBBodyPart,
+    estimateCaloriesBurned,
+} from '@/services/exerciseDB';
 
 // Analyze recent workout history to track muscle group frequency
 export const analyzeMuscleGroupFrequency = (
@@ -301,41 +303,36 @@ export const suggestProgressiveOverload = (
 };
 
 // ─────────────────────────────────────────────────
-// API-POWERED RECOMMENDATION (uses API Ninjas)
+// API-POWERED RECOMMENDATION (uses ExerciseDB via RapidAPI)
 // Falls back to local database if API key is not set
 // ─────────────────────────────────────────────────
 
-/** Convert an API Ninjas exercise to our app's Exercise type */
-function convertApiExercise(apiEx: ApiNinjasExercise): Exercise {
-    const muscleMap: Record<string, MuscleGroup> = {
-        abdominals: 'core', abductors: 'legs', adductors: 'legs',
-        biceps: 'biceps', calves: 'legs', chest: 'chest',
-        forearms: 'biceps', glutes: 'glutes', hamstrings: 'legs',
-        lats: 'back', lower_back: 'back', middle_back: 'back',
-        neck: 'shoulders', quadriceps: 'legs', traps: 'shoulders',
-        triceps: 'triceps',
-    };
-
+/** Convert an ExerciseDB exercise to our app's Exercise type */
+function convertApiExercise(apiEx: ExerciseDBExercise): Exercise {
     const typeMap: Record<string, 'strength' | 'cardio' | 'stretching'> = {
-        strength: 'strength', powerlifting: 'strength', strongman: 'strength',
-        olympic_weightlifting: 'strength', plyometrics: 'strength',
-        cardio: 'cardio', stretching: 'stretching',
+        strength: 'strength',
+        cardio: 'cardio',
+        stretching: 'stretching',
+        mobility: 'stretching',
+        plyometrics: 'strength',
+        balance: 'strength',
+        rehabilitation: 'stretching',
     };
 
     return {
-        id: `api-${apiEx.name.toLowerCase().replace(/\s+/g, '-')}`,
+        id: `api-${apiEx.id || apiEx.name.toLowerCase().replace(/\s+/g, '-')}`,
         name: apiEx.name,
-        type: typeMap[apiEx.type] || 'strength',
-        primaryMuscles: [muscleMap[apiEx.muscle] || 'core'],
-        secondaryMuscles: [],
-        equipment: (apiEx.equipments || ['bodyweight']) as any,
-        difficulty: fromApiDifficulty(apiEx.difficulty),
-        instructions: apiEx.instructions,
+        type: typeMap[apiEx.category || ''] || 'strength',
+        primaryMuscles: [fromExerciseDBBodyPart(apiEx.bodyPart)],
+        secondaryMuscles: (apiEx.secondaryMuscles || []).map(m => fromExerciseDBBodyPart(m)),
+        equipment: [apiEx.equipment === 'body weight' ? 'bodyweight' : apiEx.equipment] as any,
+        difficulty: fromExerciseDBDifficulty(apiEx.difficulty),
+        instructions: Array.isArray(apiEx.instructions) ? apiEx.instructions.join(' ') : undefined,
     };
 }
 
 /**
- * Generate workout recommendation using API Ninjas exercises.
+ * Generate workout recommendation using ExerciseDB exercises.
  * Falls back to the local generateWorkoutRecommendation() if API is not configured.
  */
 export const generateWorkoutRecommendationWithAPI = async (
@@ -343,7 +340,7 @@ export const generateWorkoutRecommendationWithAPI = async (
     goal: WorkoutGoal
 ): Promise<WorkoutRecommendation & { caloriesEstimate?: number; apiPowered: boolean }> => {
     // Fall back to local if API isn't configured
-    if (!isApiNinjasConfigured()) {
+    if (!isExerciseDBConfigured()) {
         const local = generateWorkoutRecommendation(workoutLogs, goal);
         return { ...local, apiPowered: false };
     }
@@ -398,23 +395,13 @@ export const generateWorkoutRecommendationWithAPI = async (
         }
     }
 
-    // Map difficulty
-    const apiDiff: ApiNinjasDifficulty =
-        goal.experienceLevel === 'advanced' ? 'expert' : goal.experienceLevel;
-
-    // Fetch exercises from API Ninjas for each target muscle
-    const apiExercises: ApiNinjasExercise[] = [];
+    // Fetch exercises from ExerciseDB for each target muscle
+    const apiExercises: ExerciseDBExercise[] = [];
     for (const muscle of targetMuscles) {
-        if (muscle === 'cardio') {
-            // Use type=cardio for cardio exercises
-            const cardioEx = await searchExercisesAPI({ type: 'cardio', difficulty: apiDiff });
-            apiExercises.push(...cardioEx);
-        } else {
-            const apiMuscle = toApiNinjasMuscle(muscle);
-            if (apiMuscle) {
-                const muscleEx = await searchExercisesAPI({ muscle: apiMuscle, difficulty: apiDiff });
-                apiExercises.push(...muscleEx);
-            }
+        const bodyPart = toExerciseDBBodyPart(muscle);
+        if (bodyPart) {
+            const exercises = await getExercisesByBodyPart(bodyPart);
+            apiExercises.push(...exercises);
         }
     }
 
@@ -424,7 +411,7 @@ export const generateWorkoutRecommendationWithAPI = async (
         exercises = apiExercises
             .slice(0, 8) // Limit to 8
             .map(convertApiExercise);
-        reasoning = `[API Ninjas] ${reasoning} Found ${apiExercises.length} exercises from the API.`;
+        reasoning = `[ExerciseDB] ${reasoning} Found ${apiExercises.length} exercises from the API.`;
     } else {
         // API returned nothing — fall back to local
         exercises = selectExercises(targetMuscles, goal.availableEquipment, goal.experienceLevel);
@@ -434,14 +421,10 @@ export const generateWorkoutRecommendationWithAPI = async (
     const { suggestedSets, suggestedReps } = getSetsAndReps(goal.fitnessGoal, goal.experienceLevel);
     const estimatedDuration = exercises.length * suggestedSets * 2;
 
-    // Estimate calories burned via API
-    let caloriesEstimate: number | undefined;
-    try {
-        const calResults = await getCaloriesBurned('weight training', 160, estimatedDuration);
-        if (calResults.length > 0) {
-            caloriesEstimate = Math.round(calResults[0].total_calories);
-        }
-    } catch { /* ignore */ }
+    // Estimate calories burned (ExerciseDB doesn't have a calories endpoint)
+    const intensity = goal.fitnessGoal === 'fatLoss' || goal.fitnessGoal === 'endurance' ? 'vigorous' :
+                      goal.experienceLevel === 'beginner' ? 'light' : 'moderate';
+    const caloriesEstimate = estimateCaloriesBurned(estimatedDuration, intensity);
 
     return {
         exercises,
